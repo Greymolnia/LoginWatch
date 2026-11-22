@@ -1,0 +1,222 @@
+[
+  {
+    "id": "P01",
+    "title": "Пять ошибок одного аккаунта",
+    "file": "P01.json",
+    "expected": [
+      1,
+      0,
+      0
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P02",
+    "title": "Ошибки одного аккаунта с разных IP",
+    "file": "P02.json",
+    "expected": [
+      1,
+      0,
+      0
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P03",
+    "title": "Пять разных аккаунтов с одного IP",
+    "file": "P03.json",
+    "expected": [
+      0,
+      1,
+      0
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P04",
+    "title": "Пять ошибок и успех",
+    "file": "P04.json",
+    "expected": [
+      1,
+      0,
+      1
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P05",
+    "title": "Успех с другого IP",
+    "file": "P05.json",
+    "expected": [
+      1,
+      0,
+      1
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P06",
+    "title": "Перемешанный подозрительный журнал",
+    "file": "P06.json",
+    "expected": [
+      1,
+      0,
+      1
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P07",
+    "title": "Ровно десять минут включаются",
+    "file": "P07.json",
+    "expected": [
+      1,
+      0,
+      0
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P08",
+    "title": "Две серии разделены паузой",
+    "file": "P08.json",
+    "expected": [
+      2,
+      0,
+      0
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P09",
+    "title": "Все три правила",
+    "file": "P09.json",
+    "expected": [
+      1,
+      1,
+      1
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "P10",
+    "title": "Разные аккаунты и повторные ошибки",
+    "file": "P10.json",
+    "expected": [
+      0,
+      1,
+      0
+    ],
+    "suspicious": true
+  },
+  {
+    "id": "N01",
+    "title": "Только успешные входы",
+    "file": "N01.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N02",
+    "title": "Четыре ошибки ниже порога",
+    "file": "N02.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N03",
+    "title": "Пятая ошибка за пределами окна",
+    "file": "N03.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N04",
+    "title": "Разные аккаунты с разных IP",
+    "file": "N04.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N05",
+    "title": "Успех сбрасывает незавершенную серию",
+    "file": "N05.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N06",
+    "title": "Разреженные ошибки",
+    "file": "N06.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N07",
+    "title": "Четыре аккаунта не достигают порога IP",
+    "file": "N07.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N08",
+    "title": "Успех другого аккаунта после четырех ошибок",
+    "file": "N08.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N09",
+    "title": "Успехи не дополняют порог IP",
+    "file": "N09.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  },
+  {
+    "id": "N10",
+    "title": "Ошибки одного аккаунта разделены успехами",
+    "file": "N10.json",
+    "expected": [
+      0,
+      0,
+      0
+    ],
+    "suspicious": false
+  }
+]

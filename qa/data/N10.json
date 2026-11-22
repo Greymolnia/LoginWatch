@@ -1,0 +1,65 @@
+[
+  {
+    "id": "0",
+    "timestamp": "2026-11-20T09:00:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "failure"
+  },
+  {
+    "id": "1",
+    "timestamp": "2026-11-20T09:01:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "success"
+  },
+  {
+    "id": "2",
+    "timestamp": "2026-11-20T09:02:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "failure"
+  },
+  {
+    "id": "3",
+    "timestamp": "2026-11-20T09:03:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "success"
+  },
+  {
+    "id": "4",
+    "timestamp": "2026-11-20T09:04:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "failure"
+  },
+  {
+    "id": "5",
+    "timestamp": "2026-11-20T09:05:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "success"
+  },
+  {
+    "id": "6",
+    "timestamp": "2026-11-20T09:06:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "failure"
+  },
+  {
+    "id": "7",
+    "timestamp": "2026-11-20T09:07:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "success"
+  },
+  {
+    "id": "8",
+    "timestamp": "2026-11-20T09:08:00.000Z",
+    "account": "user-01",
+    "ip": "192.0.2.10",
+    "result": "failure"
+  }
+]
