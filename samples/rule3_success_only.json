@@ -1,0 +1,9 @@
+[
+  {
+    "id": "event-1",
+    "timestamp": "2026-11-20T09:07:00Z",
+    "account": "employee-01",
+    "ip": "192.0.2.10",
+    "result": "success"
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "event-1",
+    "timestamp": "2026-11-20T09:00:00Z",
+    "account": "employee-1",
+    "ip": "192.0.2.10",
+    "result": "failure"
+  },
+  {
+    "id": "event-2",
+    "timestamp": "2026-11-20T09:01:00Z",
+    "account": "employee-2",
+    "ip": "192.0.2.11",
+    "result": "failure"
+  },
+  {
+    "id": "event-3",
+    "timestamp": "2026-11-20T09:02:00Z",
+    "account": "employee-3",
+    "ip": "192.0.2.12",
+    "result": "failure"
+  },
+  {
+    "id": "event-4",
+    "timestamp": "2026-11-20T09:03:00Z",
+    "account": "employee-4",
+    "ip": "192.0.2.13",
+    "result": "failure"
+  },
+  {
+    "id": "event-5",
+    "timestamp": "2026-11-20T09:04:00Z",
+    "account": "employee-5",
+    "ip": "192.0.2.14",
+    "result": "failure"
+  },
+  {
+    "id": "event-6",
+    "timestamp": "2026-11-20T09:05:00Z",
+    "account": "employee-6",
+    "ip": "192.0.2.15",
+    "result": "failure"
+  }
+]

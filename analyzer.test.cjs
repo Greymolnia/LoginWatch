@@ -1,0 +1,37 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {validate,detect,detectManyAccounts,detectSuccessAfterFailures}=require('./analyzer.js');
+const event=(n,account='u1',result='failure',minute=n)=>({id:String(n),timestamp:new Date(Date.UTC(2026,10,20,9,minute)).toISOString(),account,ip:'192.0.2.10',result});
+const run=(a,t=5,w=10)=>detect(validate(a),t,w);
+test('порог и объединение пересекающихся окон',()=>assert.equal(run(Array.from({length:6},(_,i)=>event(i))).length,1));
+test('ошибки разных аккаунтов не складываются',()=>assert.equal(run(Array.from({length:6},(_,i)=>event(i,'u'+i))).length,0));
+test('граница временного окна включена',()=>{const a=[event(0),event(1),event(2),event(3),event(4,'u1','failure',10)];assert.equal(run(a).length,1);a[4]=event(4,'u1','failure',11);assert.equal(run(a).length,0);});
+test('события вне порядка сортируются',()=>assert.equal(run([4,2,0,3,1].map(i=>event(i))).length,1));
+test('успех разделяет серии',()=>assert.equal(run([event(0),event(1),event(2),event(3,'u1','success'),event(4),event(5)]).length,0));
+test('отдельные серии образуют два эпизода',()=>assert.equal(run([0,1,2,3,4,30,31,32,33,34].map(i=>event(i))).length,2));
+test('повторные ID отклоняются',()=>assert.throws(()=>validate([event(0),event(0)]),/повторяется/));
+test('неверные поля отклоняются',()=>{assert.throws(()=>validate([]));assert.throws(()=>validate([{...event(0),result:'unknown'}]));assert.throws(()=>validate([{...event(0),ip:'999.0.0.1'}]));assert.throws(()=>validate([{...event(0),timestamp:'2026-11-20'}]));});
+test('нецелые и недопустимые пороги отклоняются',()=>{assert.throws(()=>run([event(0)],2.5));assert.throws(()=>run([event(0)],0));assert.throws(()=>run([event(0)],5,0));});
+
+const runIP=(a,t=5,w=10)=>detectManyAccounts(validate(a),t,w);
+test('правило 2: шесть разных аккаунтов одного IP дают один эпизод',()=>{const r=runIP(Array.from({length:6},(_,i)=>event(i,'u'+i)));assert.equal(r.length,1);assert.equal(r[0].events.length,6);});
+test('правило 2: повторные ошибки одного аккаунта не считаются разными',()=>assert.equal(runIP(Array.from({length:6},(_,i)=>event(i))).length,0));
+test('правило 2: разные IP не складываются',()=>assert.equal(runIP(Array.from({length:6},(_,i)=>({...event(i,'u'+i),ip:`192.0.2.${i+10}`}))).length,0));
+test('правило 2: высокий порог и короткое окно',()=>{const a=Array.from({length:6},(_,i)=>event(i,'u'+i));assert.equal(runIP(a,7).length,0);assert.equal(runIP(a,5,3).length,0);});
+test('правило 2: успехи не входят в счётчик и не сбрасывают ошибки IP',()=>{const a=[event(0,'u0'),event(1,'u1'),event(2,'u2','success'),event(3,'u3'),event(4,'u4'),event(5,'u5')];assert.equal(runIP(a)[0].events.length,5);assert.equal(runIP(a.filter(e=>e.id!=='5')).length,0);});
+test('правило 2: включённая граница окна и отдельные эпизоды',()=>{assert.equal(runIP([event(0,'u0'),event(1,'u1','failure',10)],2).length,1);assert.equal(runIP([event(0,'u0'),event(1,'u1','failure',11)],2).length,0);assert.equal(runIP([0,1,30,31].map(i=>event(i,'u'+i)),2).length,2);});
+test('правило 2: перемешанные события сортируются',()=>assert.equal(runIP([4,1,0,3,2].map(i=>event(i,'u'+i))).length,1));
+test('правило 2: недопустимые настройки отклоняются',()=>{assert.throws(()=>runIP([event(0)],1));assert.throws(()=>runIP([event(0)],2,1.5));});
+
+const runSuccess=(a,t=5,w=10)=>detectSuccessAfterFailures(validate(a),t,w);
+const errors=()=>Array.from({length:6},(_,i)=>event(i));
+test('правило 3: ошибки и успех того же аккаунта',()=>{const r=runSuccess([...errors(),event(6,'u1','success',7)]);assert.equal(r.length,1);assert.equal(r[0].events.length,7);assert.equal(r[0].events.at(-1).result,'success');});
+test('правило 3: успех другого аккаунта не подходит',()=>assert.equal(runSuccess([...errors(),event(6,'u2','success',7)]).length,0));
+test('правило 3: мало ошибок и только успех не срабатывают',()=>{assert.equal(runSuccess([event(0),event(1),event(2,'u1','success')]).length,0);assert.equal(runSuccess([event(0,'u1','success')]).length,0);});
+test('правило 3: без успеха эпизода нет',()=>assert.equal(runSuccess(errors()).length,0));
+test('правило 3: поздний успех и короткое окно',()=>{assert.equal(runSuccess([...errors(),event(6,'u1','success',20)]).length,0);assert.equal(runSuccess([...errors(),event(6,'u1','success',7)],5,3).length,0);});
+test('правило 3: успешный вход сбрасывает ошибки, повторный успех не дублирует эпизод',()=>assert.equal(runSuccess([...errors(),event(6,'u1','success',7),event(7,'u1','success',8)]).length,1));
+test('правило 3: успех до достижения порога тоже сбрасывает счётчик',()=>assert.equal(runSuccess([event(0),event(1),event(2),event(3,'u1','success'),event(4),event(5),event(6,'u1','success')]).length,0));
+test('правило 3: IP успеха может отличаться',()=>assert.equal(runSuccess([...errors(),{...event(6,'u1','success',7),ip:'192.0.2.20'}]).length,1));
+test('правило 3: граница окна включена',()=>{assert.equal(runSuccess([event(0),event(1),event(2,'u1','success',10)],2).length,1);assert.equal(runSuccess([event(0),event(1),event(2,'u1','success',11)],2).length,0);});
+test('правило 3: сортировка и недопустимые настройки',()=>{assert.equal(runSuccess([event(6,'u1','success',7),...errors().reverse()]).length,1);assert.throws(()=>runSuccess(errors(),1));assert.throws(()=>runSuccess(errors(),5,1.5));});
