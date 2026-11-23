@@ -14,6 +14,35 @@ function message(text,error=false){byId('message').textContent=text;byId('messag
 function clearResults(){resetMetrics();resetTimeline();lastReport=null;byId('export-text').disabled=true;byId('export-json').disabled=true;byId('summary').textContent='Здесь появится сводка после проверки журнала.';byId('result-empty').hidden=false;byId('result-empty').querySelector('h3').textContent='Журнал ещё не проверен';byId('result-empty').querySelector('p').textContent='Выберите файл или готовый пример, затем нажмите «Проверить журнал».';byId('episodes').replaceChildren();}
 function load(data,label){events=LoginWatch.validate(data);sourceLabel=label;byId('source').textContent=`${label}. Событий: ${events.length}.`;byId('analyze').disabled=false;clearResults();message('Журнал готов к проверке.');}
 function node(tag,text,parent){const e=document.createElement(tag);e.textContent=text;parent.append(e);return e;}
+function addEpisodeEvents(card, events){
+  const details=node('details','',card);
+  node('summary',`Связанные события · ${events.length}`,details);
+  details.addEventListener('toggle',function renderOnOpen(){
+    if(!details.open)return;
+    details.removeEventListener('toggle',renderOnOpen);
+    const wrap=node('div','',details);wrap.className='table-wrap';
+    const table=node('table','',wrap);
+    const head=node('tr','',node('thead','',table));
+    for(const title of ['ID','Время','Аккаунт','IP-адрес','Результат'])node('th',title,head).scope='col';
+    const body=node('tbody','',table);
+    const more=node('button','Показать ещё 50 событий',details);
+    more.type='button';more.className='secondary';
+    let shown=0;
+    function appendRows(){
+      const batch=document.createDocumentFragment();
+      const end=Math.min(shown+50,events.length);
+      for(;shown<end;shown++){
+        const event=events[shown];
+        const row=node('tr','',batch);
+        for(const value of [event.id,event.timestamp,event.account,event.ip,event.result==='success'?'Успешный вход':'Ошибка входа'])node('td',value,row);
+      }
+      body.append(batch);
+      more.hidden=shown===events.length;
+    }
+    more.onclick=appendRows;
+    appendRows();
+  });
+}
 byId('suspicious').onclick=()=>example('account');
 byId('spray').onclick=()=>example('ip');
 byId('success-example').onclick=()=>example('success');
@@ -63,11 +92,7 @@ byId('analyze').onclick=()=>{
       const advice=node('p','',card);advice.className='episode-advice';node('strong','Что проверить: ',advice);advice.append(document.createTextNode(reportEpisode.recommendation));
       if(isSuccess)node('p','Сотрудник мог вспомнить пароль после ошибок. Последовательность сама по себе не подтверждает захват аккаунта.',card).className='episode-advice';
       if(isIP)node('p','Общий IP может принадлежать офису или VPN. Без данных о паролях нельзя подтвердить использование одного пароля.',card).className='episode-advice';
-      const details=node('details','',card);node('summary',`Связанные события · ${episode.events.length}`,details);
-      const wrap=node('div','',details);wrap.className='table-wrap';const table=node('table','',wrap);const head=node('tr','',node('thead','',table));
-      for(const title of ['ID','Время','Аккаунт','IP-адрес','Результат']){const th=node('th',title,head);th.scope='col';}
-      const body=node('tbody','',table);
-      for(const event of episode.events){const tr=node('tr','',body);for(const value of [event.id,event.timestamp,event.account,event.ip,event.result==='success'?'Успешный вход':'Ошибка входа'])node('td',value,tr);}
+      addEpisodeEvents(card,episode.events);
     }
   } catch(error){message(error.message,true);}
 };

@@ -27,7 +27,30 @@ await check('B13','XSS в account и id отображается текстом'
 await check('B14','Пустой порог блокирует анализ и экспорт',async()=>{await el('threshold').fill('');await el('analyze').click();assert.match(await txt('message'),/целые пороги/);assert.equal(await el('export-json').isDisabled(),true);await el('threshold').fill('5');});
 await check('B15','Локальный журнал не создает внешних запросов',async()=>assert.deepEqual(requests.filter(u=>/^https?:/i.test(u)),[]));
 await check('B16','Нет необработанных ошибок JavaScript',async()=>assert.deepEqual(errors,[]));
-await check('B17','Невозможная дата отклоняется в интерфейсе',async()=>{await load([{...base,timestamp:'2026-02-30T09:00:00Z'}]);assert.equal(await el('analyze').isDisabled(),true);});
+await check('B17','Невозможная дата отклоняется в интерфейсе',async()=>{
+  await el('file').setInputFiles(path.join(root,'qa/data/invalid-calendar.json'));
+  await page.waitForFunction(()=>document.querySelector('#message').classList.contains('error'));
+  assert.match(await txt('message'),/действительную дату/);
+  assert.equal(await el('analyze').isDisabled(),true);
+  assert.equal(await el('export-json').isDisabled(),true);
+});
 await check('B18','JSON и CSV одного сценария дают одинаковую сводку',async()=>{const metrics=[];for(const ext of ['json','csv']){await el('file').setInputFiles(path.join(root,'samples/rule3_suspicious.'+ext));await page.waitForFunction(()=>!document.querySelector('#analyze').disabled);await el('analyze').click();metrics.push(await txt('summary'));}assert.equal(metrics[0],metrics[1]);});
+await check('B19','Длинный эпизод раскрывается порциями, отчёт сохраняет все события',async()=>{
+  await load(Array.from({length:55},(_,i)=>({...base,id:`long-${i}`})));
+  await el('analyze').click();
+  const details=el('episodes').locator('details');
+  assert.equal(await details.locator('tbody tr').count(),0);
+  await details.locator('summary').click();
+  const more=details.getByRole('button',{name:'Показать ещё 50 событий'});
+  await more.waitFor();
+  assert.equal(await details.locator('tbody tr').count(),50);
+  const pending=page.waitForEvent('download');
+  await el('export-json').click();
+  const report=JSON.parse(fs.readFileSync(await (await pending).path(),'utf8'));
+  assert.equal(report.episodes[0].events.length,55);
+  await more.click();
+  assert.equal(await details.locator('tbody tr').count(),55);
+  assert.equal(await more.isHidden(),true);
+});
 fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({runAt:new Date().toISOString(),browser:await browser.version(),results,externalRequests:requests.filter(u=>/^https?:/i.test(u)),errors},null,2));for(const r of results)console.log(`${r.status} ${r.id} ${r.title}${r.actual?' — '+r.actual:''}`);await browser.close();process.exitCode=results.some(r=>r.status==='FAIL')?1:0;
 })().catch(e=>{console.error(e);process.exitCode=2;});

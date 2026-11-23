@@ -11,7 +11,20 @@ check('S01','Отклонение повторяющихся ID',()=>assert.thro
 check('S02','Отклонение неизвестного result',()=>assert.throws(()=>a.validate([{...base,result:'admin'}])));
 check('S03','Отклонение неверного IPv4',()=>{for(const ip of ['256.1.1.1','-1.1.1.1','::1','1.1.1','https://example.org'])assert.throws(()=>a.validate([{...base,ip}]));});
 check('S04','Отклонение времени без зоны',()=>assert.throws(()=>a.validate([{...base,timestamp:'2026-11-20T09:00:00'}])));
-check('S05','Несуществующая календарная дата должна отклоняться',()=>assert.throws(()=>a.validate([{...base,timestamp:'2026-02-30T09:00:00Z'}])));
+check('S05','Несуществующие даты отклоняются, допустимые даты сохраняют точность',()=>{
+  for(const timestamp of ['2026-02-29T09:00:00Z','2026-02-30T09:00:00Z','2026-04-31T09:00:00+03:00','1900-02-29T09:00:00Z']){
+    assert.throws(()=>a.validate([{...base,timestamp}]),/действительную дату/);
+  }
+  for(const [timestamp,utc] of [
+    ['2026-02-28T09:00:00Z','2026-02-28T09:00:00.000Z'],
+    ['2024-02-29T00:30:00.125+03:00','2024-02-28T21:30:00.125Z'],
+    ['2000-02-29T23:30:00.001-02:00','2000-03-01T01:30:00.001Z']
+  ]){
+    const [event]=a.validate([{...base,timestamp}]);
+    assert.equal(event.timestamp,timestamp);
+    assert.equal(new Date(event.time).toISOString(),utc);
+  }
+});
 check('S06','Пустые и неверные структуры',()=>{for(const x of [null,{},[],[null],[[]],[1]])assert.throws(()=>a.validate(x));});
 check('S07','Обязательные поля и их типы',()=>{for(const key of Object.keys(base))for(const value of ['',null,7,'   '])assert.throws(()=>a.validate([{...base,[key]:value}]));});
 check('S08','Поле 200 символов принимается, 201 отклоняется',()=>{assert.equal(a.validate([{...base,account:'a'.repeat(200)}]).length,1);assert.throws(()=>a.validate([{...base,account:'a'.repeat(201)}]));});

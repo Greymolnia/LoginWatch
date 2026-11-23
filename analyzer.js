@@ -1,5 +1,22 @@
 (function (scope) {
   "use strict";
+  const timestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+  function parseTimestamp(timestamp, line) {
+    const match = timestampPattern.exec(timestamp);
+    if (match) {
+      const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      const monthLengths = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      // Validate the date in its original time zone before converting to UTC.
+      if (month >= 1 && month <= 12 && day >= 1 && day <= monthLengths[month - 1]) {
+        const time = Date.parse(timestamp);
+        if (Number.isFinite(time)) return time;
+      }
+    }
+    throw new Error(`Событие ${line}: укажите действительную дату ISO 8601 с часовым поясом.`);
+  }
+
   function validate(data) {
     if (!Array.isArray(data) || data.length === 0) throw new Error("Журнал должен содержать непустой массив событий.");
     if (data.length > 20000) throw new Error("Для прототипа допустимо не более 20 000 событий.");
@@ -14,35 +31,50 @@
       if (ids.has(item.id)) throw new Error(`Событие ${line}: повторяется id ${item.id}.`);
       ids.add(item.id);
       const timestamp = item.timestamp;
-      const time = Date.parse(timestamp);
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(timestamp) || !Number.isFinite(time)) throw new Error(`Событие ${line}: укажите дату ISO 8601 с часовым поясом.`);
+      const time = parseTimestamp(timestamp, line);
       if (!['success', 'failure'].includes(item.result)) throw new Error(`Событие ${line}: result должен быть success или failure.`);
       const parts = item.ip.split('.');
       if (parts.length !== 4 || parts.some(p => !/^\d{1,3}$/.test(p) || Number(p) > 255)) throw new Error(`Событие ${line}: ожидается IPv4-адрес.`);
       return {id:item.id, timestamp, account:item.account, ip:item.ip, result:item.result, time, order:index};
     }).sort((a,b) => a.time-b.time || a.order-b.order);
   }
+  // Sorted events let the window advance without scanning its retained entries.
+  function expire(state, cutoff) {
+    while (state.start < state.queue.length && state.queue[state.start].time < cutoff) {
+      const removed = state.queue[state.start++];
+      if (state.accounts) {
+        const count = state.accounts.get(removed.account);
+        if (count === 1) state.accounts.delete(removed.account);
+        else state.accounts.set(removed.account, count - 1);
+      }
+    }
+  }
+
+  function recordEpisode(state, identity, episodes, cutoff) {
+    if (!state.active || state.active.events.at(-1).time < cutoff) {
+      state.active = {...identity, events: []};
+      episodes.push(state.active);
+    }
+    // A later qualifying window can cover previously unreported failures.
+    for (let i = Math.max(state.start, state.reportedUntil); i < state.queue.length; i++) {
+      state.active.events.push(state.queue[i]);
+    }
+    state.reportedUntil = state.queue.length;
+  }
+
   function detect(events, threshold, minutes) {
     if (!Number.isInteger(threshold) || threshold < 2 || threshold > 1000 || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440) throw new Error("Укажите целые пороги: 2–1000 ошибок и 1–1440 минут.");
     const groups = new Map();
     const episodes = [];
     const duration = minutes * 60000;
     for (const event of events) {
+      if (event.result === 'success') {groups.delete(event.account); continue;}
       let state = groups.get(event.account);
-      if (!state) {state = {queue:[], active:null}; groups.set(event.account, state);}
-      if (event.result === 'success') {state.queue=[]; state.active=null; continue;}
-      state.queue = state.queue.filter(e => event.time-e.time <= duration);
-      if (state.active && event.time-state.active.events.at(-1).time > duration) state.active=null;
+      if (!state) {state = {queue:[], start:0, reportedUntil:0, active:null}; groups.set(event.account, state);}
+      const cutoff = event.time - duration;
+      expire(state, cutoff);
       state.queue.push(event);
-      if (state.queue.length >= threshold) {
-        if (!state.active) {
-          state.active={account:event.account, events:[...state.queue]};
-          episodes.push(state.active);
-        } else {
-          const known=new Set(state.active.events.map(e=>e.id));
-          for (const e of state.queue) if (!known.has(e.id)) {state.active.events.push(e); known.add(e.id);}
-        }
-      }
+      if (state.queue.length - state.start >= threshold) recordEpisode(state, {account:event.account}, episodes, cutoff);
     }
     return episodes;
   }
@@ -55,17 +87,12 @@
       // Успех в одном аккаунте не отменяет ошибки в других аккаунтах с этого IP.
       if (event.result !== 'failure') continue;
       let state = states.get(event.ip);
-      if (!state) {state={queue:[],active:null};states.set(event.ip,state);}
-      state.queue=state.queue.filter(e=>event.time-e.time<=duration);
-      if(state.active && event.time-state.active.events.at(-1).time>duration)state.active=null;
+      if (!state) {state={queue:[],start:0,reportedUntil:0,active:null,accounts:new Map()};states.set(event.ip,state);}
+      const cutoff = event.time - duration;
+      expire(state, cutoff);
       state.queue.push(event);
-      if(new Set(state.queue.map(e=>e.account)).size<threshold)continue;
-      if(!state.active){
-        state.active={ip:event.ip,events:[...state.queue]};episodes.push(state.active);
-      }else{
-        const known=new Set(state.active.events.map(e=>e.id));
-        for(const e of state.queue)if(!known.has(e.id)){state.active.events.push(e);known.add(e.id);}
-      }
+      state.accounts.set(event.account, (state.accounts.get(event.account) || 0) + 1);
+      if (state.accounts.size >= threshold) recordEpisode(state, {ip:event.ip}, episodes, cutoff);
     }
     return episodes;
   }
@@ -75,12 +102,15 @@
     const episodes = [];
     const duration = minutes * 60000;
     for (const event of events) {
-      let failures=(queues.get(event.account)||[]).filter(e=>event.time-e.time<=duration);
+      let state = queues.get(event.account);
       if(event.result==='failure') {
-        failures.push(event);
-        queues.set(event.account,failures);
-      } else {
-        if(failures.length>=threshold) episodes.push({account:event.account,events:[...failures,event]});
+        if (!state) {state = {queue:[], start:0}; queues.set(event.account, state);}
+        state.queue.push(event);
+      } else if (state) {
+        expire(state, event.time - duration);
+        if (state.queue.length - state.start >= threshold) {
+          episodes.push({account:event.account,events:[...state.queue.slice(state.start),event]});
+        }
         // Любой успех завершает предшествующую серию этого аккаунта.
         queues.delete(event.account);
       }
